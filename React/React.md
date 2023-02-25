@@ -72,7 +72,12 @@ React 从诞生到现在，一直在给我们带来各种各样的惊喜。甚�
   VScode插件安装
 
   - ESLint 代码风格检查
+
   - ES7+ React/Redux/GraphQL/React-Native snippets 快速代码编写
+
+    `rcc` : 快速构建类组件
+
+    `rfc`: 快速构建函数组件
 
 虽然官方提供了通过 *CDN* 引入 React 的方式：*https://zh-hans.reactjs.org/docs/cdn-links.html*
 
@@ -275,6 +280,35 @@ eventHandler(e){
   ```jsx
   onClick={(e)=>eventHandler("Hello333",e)}
   ```
+
+### HOC(高阶组件)
+
+> HOF(高阶函数) Higher-Order Function：以函数作为参数，并返回一个函数
+>
+> HOC：以组件作为参数，返回一个组件
+
+通常，可以利用 HOC 实现**横切**关注点
+
+可以通过高阶组件**增加组件的功能**
+
+
+
+**注意**
+
+1. 不要在render中使用高阶组件
+2. 不要在高阶组件内部更改传入的组件
+
+
+
+
+
+### Ref
+
+使用场景：希望直接使用**dom元素**中的某个方法，或者希望直接使用**自定义组件**中的某个方法。
+
+1. Ref 作用于内置的 html 组件，得到的是真实的 dom 对象
+2. ref 作用与类组件，得到的将是类的实例
+3. ref 不能作用与函数组件
 
 
 
