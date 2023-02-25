@@ -913,6 +913,17 @@ ES6规定，如果一个对象具有知名符号属性```Symbol.iterator```，�
 
 > 思考：如何知晓一个对象是否是可迭代的？
 > 思考：如何遍历一个可迭代对象？
+>
+> ```js
+> var arr = [1,3,4]
+> const iterator = arr[Symbol.iterator]() //得到一个可迭代对象
+> let result = iterator.next()
+> // 迭代
+> while(!result.done){
+>   console.log(result.value)
+>   result = iterator.next()
+> }
+> ```
 
 #### for-of 循环
 
@@ -923,6 +934,7 @@ for-of 循环用于遍历可迭代对象，格式如下
 for(const item of iterable){
     //iterable：可迭代对象
     //item：每次迭代得到的数据
+  console.log(item)
 }
 ```
 
@@ -949,25 +961,845 @@ for(const item of iterable){
 function* method(){
 
 }
+const generator = method() // generator是一个生成器
 ```
+
+![image-20230221091945634](http://img.buxiaoxing.com/uPic/2023/02/21091945-Y2NDxy-image-20230221091945634.png)
 
 4. 生成器函数内部是如何执行的？
 
 生成器函数内部是为了给生成器的每次迭代提供的数据
 
-每次调用生成器的next方法，将导致生成器函数运行到下一个yield关键字位置
+每次调用生成器的next方法，将导致生成器函数**运行到下一个yield**关键字位置
 
-yield是一个关键字，该关键字只能在生成器函数内部使用，表达“产生”一个迭代数据。
+**yield**是一个关键字，该关键字只能在生成器函数内部使用，表达“产生”一个迭代数据。
+
+```js
+function* test(){
+  console.log("第一次运行")
+  yield 1
+  console.log("第二次运行")
+  yield 2
+  console.log("第三次运行")
+  yield 3
+
+}
+const generator = test()
+```
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/02/21092914-n4M4mC-image-20230221092914338.png" alt="image-20230221092914338" style="zoom:50%;" />
+
+
 
 5. 有哪些需要注意的细节？
 
-1). 生成器函数可以有返回值，返回值出现在第一次done为true时的value属性中
-2). 调用生成器的next方法时，可以传递参数，传递的参数会交给yield表达式的返回值
+1). 生成器函数可以有返回值，**返回值**出现在第一次**done为true**时的value属性中
+
+```js
+function* test(){
+  console.log("第一步")
+  yield 1
+  console.log("第二步")
+  return 2
+  console.log("第三步")
+  yield 3
+}
+const generator = test()
+```
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/02/21095533-4Dx3IR-image-20230221095533284.png" alt="image-20230221095533284" style="zoom:50%;" />
+
+2). 调用生成器的next方法时，可以传递参数，传递的参数会交给**yield表达式的返回值**
+
+```js
+function* test(){
+  let info = yield 1
+  console.log(info)
+  yield 2+info
+}
+const generator = test()
+```
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/02/21095212-4linVB-image-20230221095212640.png" alt="image-20230221095212640" style="zoom:50%;" />
+
 3). 第一次调用next方法时，传参没有任何意义
 4). 在生成器函数内部，可以调用其他生成器函数，但是要注意加上*号
+
+```js
+function* t1(){
+  yield "a"
+  yield "b"
+}
+function* test(){
+  yield *t1()
+  yield 1
+  yield 2
+  yield 3
+}
+const generator = test()
+```
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/02/21100653-JzlEjL-image-20230221100652900.png" alt="image-20230221100652900" style="zoom:50%;" />
 
 
 6. 生成器的其他API
 
-- return方法：调用该方法，可以提前结束生成器函数，从而提前让整个迭代过程结束
-- throw方法：调用该方法，可以在生成器中产生一个错误
+- return方法：调用该方法，可以**提前结束生成器函数**，从而提前让整个迭代过程结束
+
+  ```js
+  function* test(){
+    yield 1
+    yield 2
+    yield 3
+  }
+  const generator = test()
+  ```
+
+   <img src="http://img.buxiaoxing.com/uPic/2023/02/21095822-lb494U-image-20230221095822214.png" alt="image-20230221095822214" style="zoom:50%;" />
+
+- throw方法：调用该方法，可以在**生成器中**产生一个错误
+
+
+
+### 生成器实现异步任务控制
+
+```js
+function* task(){
+  const d = yield 1
+  console.log(d)
+  const resp = yield fetch("http://101.132.72.36:5100/api/local")
+  const result = yield resp.json()
+  console.log(result)
+}
+run(task)
+function run (generatorFunc){
+  // console.log("run")
+  const generator = generatorFunc()
+  let result = generator.next() // 启动任务，开始迭代
+  handleResult()
+  function handleResult(){
+    if(result.done){
+      return
+    }
+    // 迭代的数据是一个Promise
+    // 等待Promise完成后进行下一次迭代
+    if(typeof result.value.then === "function"){
+      result.value.then((data)=>{
+        console.log("then")
+        result = generator.next(data)
+        handleResult()
+      }).catch((err)=>{
+        console.log("catch")
+        result = generator.throw(err)
+        handleResult()
+      })
+    }else{
+      // 迭代是同步代码，直接进行下一次迭代
+      result = generator.next(result.value)
+      handleResult()
+    }
+  }
+}
+```
+
+
+
+## 更多集合类型
+
+### set 集合
+
+> 一直以来，JS只能使用数组和对象来保存多个数据，缺乏像其他语言那样拥有丰富的集合类型。因此，ES6新增了两种集合类型（set 和 map），用于在不同的场景中发挥作用。
+
+**set用于存放不重复的数据**
+
+1. 如何创建set集合
+
+```js
+new Set(); //创建一个没有任何内容的set集合
+
+new Set(iterable); //创建一个具有初始内容的set集合，内容来自于可迭代对象每一次迭代的结果
+
+```
+
+2. 如何对set集合进行后续操作
+
+- add(数据): 添加一个数据到set集合末尾，如果数据已存在，则不进行任何操作
+  - set使用**Object.is**的方式判断两个数据是否相同，但是，针对+0和-0，set认为是相等
+- has(数据): 判断set中是否存在对应的数据
+- delete(数据)：删除匹配的数据，返回是否删除成功
+- clear()：清空整个set集合
+- size: 获取set集合中的元素数量，只读属性，无法重新赋值
+
+3. 如何与数组进行相互转换
+
+```js
+const s = new Set([x,x,x,x,x]);
+// set本身也是一个可迭代对象，每次迭代的结果就是每一项的值
+const arr = [...s];
+```
+
+4. 如何遍历
+
+1). 使用for-of循环
+2). 使用set中的实例方法forEach
+
+注意：set集合中**不存在下标**，因此**forEach**中的回调的第二个参数和第一个参数是一致的，均表示set中的每一项
+
+```js
+// 两个数组的并集、交集、差集 （不能出现重复项），得到的结果是一个新数组
+const arr1 = [33, 22, 55, 33, 11, 33, 5];
+const arr2 = [22, 55, 77, 88, 88, 99, 99];
+
+//并集
+// const result = [...new Set(arr1.concat(arr2))];
+console.log("并集", [...new Set([...arr1, ...arr2])]);
+
+const cross = [...new Set(arr1)].filter(item => arr2.indexOf(item) >= 0);
+//交集
+console.log("交集", cross)
+
+//差集
+console.log("差集", [...new Set([...arr1, ...arr2])].filter(item => cross.indexOf(item) < 0))
+```
+
+### 手写set
+
+```js
+class MySet{
+  constructor(iterator = []){
+    if(typeof iterator[Symbol.iterator] !== "function"){
+      throw new TypeError(`你提供的${iterator}不是一个可迭代对象`)
+    }
+    this._datas = []
+    for (const i of iterator) {
+      this.add(i)
+    }
+  }
+
+  add(data){
+    if(!this.has(data)){
+      this._datas.push(data)
+    }
+  }
+  has(data){
+    for (const i of this._datas) {
+      if(this._isEqual(data, i)) return true
+    }
+    return false
+  }
+  get size(){
+    return this._datas.length
+  }
+
+  delete(data){
+    for (let i = 0; i < this._datas.length; i++) {
+      const element = this._datas[i];
+      if(this._isEqual(data, element)){
+        this._datas.splice(i, 1)
+        return true
+      }
+    }
+    return false
+  }
+
+  clear(){
+    this._datas.length = 0
+  }
+
+  forEach(callback){
+    for (const i of this._datas) {
+      callback(i, i, this)
+    }
+  }
+
+  _isEqual(data1, data2){
+    if(data1 === 0 && data2 === 0){
+      return true
+    }
+    return Object.is(data1, data2)
+  }
+
+  *[Symbol.iterator](){
+    for (const i of this._datas) {
+      yield i
+    }
+  }
+}
+```
+
+
+
+### map集合
+
+键值对（key value pair）数据集合的特点：**键不可重复**
+
+map集合专门用于存储多个键值对数据。
+
+在map出现之前，我们使用的是对象的方式来存储键值对，键是属性名，值是属性值。
+
+使用对象存储有以下问题：
+
+1. 键名只能是字符串
+
+2. 获取数据的数量不方便
+
+3. 键名容易跟原型上的名称冲突
+
+   
+
+
+1. 如何创建map
+
+```js
+new Map(); //创建一个空的map
+new Map(iterable); //创建一个具有初始内容的map，初始内容来自于可迭代对象每一次迭代的结果，但是，它要求每一次迭代的结果必须是一个 **长度为2的数组** ，数组第一项表示键，数组的第二项表示值
+```
+
+2. 如何进行后续操作
+
+- size：只读属性，获取当前map中键的数量
+- set(键, 值)：设置一个键值对，键和值可以是任何类型
+  - 如果键不存在，则添加一项
+  - 如果键已存在，则修改它的值
+  - 比较键的方式和Set相同
+- get(键): 根据一个键得到对应的值
+- has(键)：判断某个键是否存在
+- delete(键)：删除指定的键
+- clear(): 清空map
+
+
+3. 和数组互相转换
+
+​		和set一样
+
+4. 遍历
+
+- for-of，每次迭代得到的是一个长度为2的数组
+- forEach，通过回调函数遍历
+  - 参数1：每一项的值
+  - 参数2：每一项的键
+  - 参数3：map本身
+
+
+
+### 手写map
+
+```js
+class MyMap {
+  constructor(iterator = []) {
+    if (typeof iterator[Symbol.iterator] !== "function") {
+      throw new TypeError(`你提供的${iterator}不是一个可迭代对象`)
+    }
+    this._data = []
+    for (const item of iterator) {
+      // item 也得是一个可迭代对象
+      if (typeof item[Symbol.iterator] !== "function") {
+        throw new TypeError(`你提供的${item}不是一个可迭代的对象`);
+      }
+      const iterator = item[Symbol.iterator]()
+      const key = iterator.next().value
+      const value = iterator.next().value
+      this.set(key, value)
+    }
+  }
+  set(key, value) {
+    // 如果存在 key ，则替换值
+    // 如果不存在 key ， 则新增一项
+    // 比较方式与Set相同
+    const obj = this._getObjt(key)
+    if(obj){
+      obj.value = value
+    }else{
+      this._data.push({
+        key,
+        value
+      })
+    }
+  }
+
+  get(key) {
+    // 获得key对应的value
+    const item = this._getObjt(key)
+    if(item) return item.value
+    return undefined
+  }
+  get size() {
+    return this._data.length
+  }
+  has(key) {
+    // 判断某个键是否存在
+  }
+
+  delete(key) {
+    // 删除指定键
+    for (let i = 0; i < this._data.length; i++) {
+      const element = this._data[i];
+      if(this._isEqual(element.key, key)){
+        this._data.splice(i, 1)
+        return true
+      }
+    }
+    return false
+  }
+  clear() {
+    // 清空map
+    this._data.length = 0
+  }
+  forEach(callback) {
+    // 参数1：每一项的值
+    // 参数2：每一项的键
+    // 参数3： map本身
+    for (const i of this._data) {
+      callback(i.value, i.key, this)
+    }
+  }
+
+  has(key){
+    return this._getObjt(key) !== undefined
+  }
+
+  *[Symbol.iterator](){
+    for (const item of this._data) {
+      yield [item.key, item.value]
+    }
+  }
+
+  _getObjt(key){
+    for (const item of this._data) {
+      if(this._isEqual(key, item)) {
+        return item
+      }
+    }
+  }
+
+  _isEqual(data1, data2){
+    if(data1 === 0 && data2 === 0){
+      return true
+    }
+    return Object.is(data1, data2)
+  }
+
+}
+```
+
+### WeakSet 和 WeakMap
+
+#### WeakSet
+
+使用该集合，可以实现和set一样的功能，不同的是：
+
+1. **它内部存储的对象地址不会影响垃圾回收**
+
+   普通集合如果该外部对象设置为null，但由于集合内部可以遍历的到，该对象并不会被垃圾回收。
+
+   Weak集合中，则会被垃圾回收。
+
+   ```js
+   let obj = {
+     name: "zs",
+     age: 12
+   }
+   const set = new Set()
+   set.add(obj)
+   obj = null
+   console.log(set)
+   ```
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/02/21140712-ORvOIB-image-20230221140712098.png" alt="image-20230221140712098" style="zoom:50%;" />
+
+   
+
+2. 只能添加对象
+
+3. 不能遍历（不是可迭代的对象）、没有size属性、没有forEach方法
+
+#### WeakMap
+
+类似于map的集合，不同的是：
+
+1. **它的键存储的地址不会影响垃圾回收**
+2. 它的键只能是对象
+3. 不能遍历（不是可迭代的对象）、没有size属性、没有forEach方法
+
+
+
+## 代理与反射
+
+### 属性描述符
+
+Property Descriptor 属性描述符  是一个普通对象，用于描述一个属性的相关信息
+
+通过```Object.getOwnPropertyDescriptor(对象, 属性名)```可以得到一个对象的某个属性的属性描述符
+
+- value：属性值
+- configurable：该属性的描述符是否可以修改
+- enumerable：该属性是否可以被枚举
+- writable：该属性是否可以被重新赋值
+
+> ```Object.getOwnPropertyDescriptors(对象)```可以得到某个对象的所有属性描述符
+
+如果需要为某个对象添加属性时 或 修改属性时， 配置其属性描述符，可以使用下面的代码:
+
+```js
+Object.defineProperty(对象, 属性名, 描述符);
+Object.defineProperties(对象, 多个属性的描述符)
+```
+
+#### 存取器属性
+
+属性描述符中，如果配置了 **get** 和 **set** 中的任何一个，则该属性，不再是一个普通属性，而变成了存取器属性。
+
+get 和 set配置均为函数，如果一个属性是存取器属性，则读取该属性时，会运行get方法，将get方法得到的返回值作为属性值；如果给该属性赋值，则会运行set方法。
+
+存取器属性最大的意义，在于可以**控制属性的读取和赋值**。
+
+
+
+### Reflect
+
+1. Reflect是什么？
+
+Reflect是一个内置的JS对象，它提供了一系列方法，可以让开发者通过调用这些方法，访问一些JS底层功能
+
+由于它类似于其他语言的**反射**，因此取名为Reflect
+
+2. 它可以做什么？
+
+使用Reflect可以实现诸如 属性的赋值与取值、调用普通函数、调用构造函数、判断属性是否存在与对象中  等等功能
+
+3. 这些功能不是已经存在了吗？为什么还需要用Reflect实现一次？
+
+有一个重要的理念，在ES5就被提出：**减少魔法、让代码更加纯粹**
+
+这种理念很大程度上是受到函数式编程的影响
+
+ES6进一步贯彻了这种理念，它认为，**对属性内存的控制、原型链的修改、函数的调用**等等，这些都属于底层实现，属于一种魔法，因此，需要**将它们提取出来，形成一个正常的API，并高度聚合到某个对象**中，于是，就造就了Reflect对象
+
+因此，你可以看到Reflect对象中有很多的API都可以使用过去的某种语法或其他API实现。
+
+4. 它里面到底提供了哪些API呢？
+
+- **Reflect.set(target, propertyKey, value)**: 设置对象target的属性propertyKey的值为value，等同于给对象的属性赋值
+
+  ```js
+  const obj = {
+    a: 1,
+    b: 2
+  }
+  // obj.a = 10;
+  Reflect.set(obj, "a", 10); // 等同于 obj.a = 10
+  console.log(Reflect.get(obj, "a"))
+  ```
+
+  
+
+- **Reflect.get(target, propertyKey)**: 读取对象target的属性propertyKey，等同于读取对象的属性值
+
+- **Reflect.apply(target, thisArgument, argumentsList)**：调用一个指定的函数，并绑定this和参数列表。等同于函数调用
+
+- **Reflect.deleteProperty(target, propertyKey)**：删除一个对象的属性
+
+- **Reflect.defineProperty(target, propertyKey, attributes)**：类似于Object.defineProperty，不同的是如果配置出现问题，返回false而不是报错
+
+- **Reflect.construct(target, argumentsList)**：用构造函数的方式创建一个对象
+
+- **Reflect.has(target, propertyKey)**: 判断一个对象是否拥有一个属性
+
+- 其他API：https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Reflect
+
+
+
+### Proxy 代理
+
+代理：提供了修改底层实现的方式，重写Reflect中的逻辑
+
+```js
+
+//代理一个目标对象
+//target：目标对象
+//handler：是一个普通对象，其中可以重写底层实现
+//返回一个代理对象
+new Proxy(target, handler)
+```
+
+```js
+const obj = {
+  a: 1,
+  b: 2
+}
+
+const proxy = new Proxy(obj, {
+  set(target, propertyKey, value) {
+    // console.log(target, propertyKey, value);
+    // target[propertyKey] = value;
+    Reflect.set(target, propertyKey, value);
+  },
+  get(target, propertyKey) {
+    if (Reflect.has(target, propertyKey)) {
+      return Reflect.get(target, propertyKey);
+    } else {
+      return -1;
+    }
+  },
+  has(target, propertyKey) {
+    return false;
+  }
+});
+// console.log(proxy); // Proxy
+// proxy.a = 10;
+// console.log(proxy.a);
+
+console.log(proxy.d);
+console.log("a" in proxy);
+```
+
+
+
+### 观察者模式
+
+有一个对象，是观察者，它用于观察另外一个对象的属性值变化，当属性值变化后会收到一个通知，可能会做一些事。
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="container"></div>
+  <script>
+    //创建一个观察者
+    function observer(target) {
+      const div = document.getElementById("container");
+      /* 不用代理创建观察者：会返回两个对象，浪费空间。不会检测到新增的属性  */
+      // const ob = {};
+      // const props = Object.keys(target);
+      // for (const prop of props) {
+      //   Object.defineProperty(ob, prop, {
+      //     get() {
+      //       return target[prop];
+      //     },
+      //     set(val) {
+      //       target[prop] = val;
+      //       render();
+      //     },
+      //     enumerable: true
+      //   })
+      // }
+      const proxy = new Proxy(target, {
+        set(target, prop, value){
+          Reflect.set(target, prop, value)
+          render()
+        },
+        get(target, prop){
+          Reflect.get(target, prop)
+        }
+      })
+      render();
+
+      function render() {
+        let html = "";
+        for (const prop of Object.keys(target)) {
+          html += `
+                        <p><span>${prop}：</span><span>${target[prop]}</span></p>
+                    `;
+        }
+        div.innerHTML = html;
+      }
+
+      return proxy;
+    }
+    const target = {
+      a: 1,
+      b: 2
+    }
+    const obj = observer(target)
+  </script>
+</body>
+
+</html>
+```
+
+
+
+## 增强的数组功能
+
+### 新增的数组API
+
+#### 静态方法
+
+- Array.of(...args): 使用指定的数组项创建一个新数组
+- Array.from(arg): 通过给定的 **类数组** 或 **可迭代对象** 创建一个新的数组。
+
+#### 实例方法
+
+- find(callback): 用于查找满足条件的第一个元素
+- findIndex(callback)：用于查找满足条件的第一个元素的下标
+- fill(data)：用指定的数据填充满数组所有的内容
+- copyWithin(target, start?, end?): 在数组内部完成复制
+- includes(data)：判断数组中是否包含某个值，使用Object.is匹配
+
+
+
+### [扩展]类型化数组
+
+#### 数字存储的前置知识
+
+1. 计算机必须使用**固定的位数**来存储数字，无论存储的数字是大是小，在内存中占用的空间是固定的。
+
+2. n位的无符号整数能表示的数字是2^n个，取值范围是：0 ~ 2^n - 1
+
+3. n位的有符号整数能表示的数字是2^n个，取值范围是：-2^(n-1) ~ 2^(n-1) - 1
+
+4. 浮点数表示法可以用于表示整数和小数，目前分为两种标准：
+   1. 32位浮点数：又称为单精度浮点数，它用1位表示符号，8位表示阶码，23位表示尾数
+   2. 64位浮点数：又称为双精度浮点数，它用1位表示符号，11位表示阶码，52位表示尾数
+
+5. JS中的所有数字，均使用双精度浮点数保存
+
+#### 类型化数组
+
+类型化数组：用于优化多个数字的存储
+
+具体分为：
+
+- Int8Array： 8位有符号整数（-128 ~ 127）
+- Uint8Array： 8位无符号整数（0 ~ 255）
+- Int16Array: ...
+- Uint16Array: ...
+- Int32Array: ...
+- Uint32Array: ...
+- Float32Array:
+- Float64Array
+
+1. 如何创建数组
+
+```js
+
+new 数组构造函数(长度)
+
+数组构造函数.of(元素...)
+
+数组构造函数.from(可迭代对象)
+
+new 数组构造函数(其他类型化数组)
+
+```
+
+
+2. 得到长度
+
+```js
+数组.length   //得到元素数量
+数组.byteLength //得到占用的字节数
+```
+
+3. 其他的用法跟普通数组一致，但是：
+
+- 不能增加和删除数据，类型化数组的长度固定
+- 一些返回数组的方法，返回的数组是同类型化的新数组
+
+#### 负数10进制转2进制
+
+>  10进制转2进制求补码
+
+1. 10进制转2进制
+
+   -129
+
+   ```js
+   129 -> 010000001
+   ```
+
+2. 求反
+
+   ```js
+   010000001 -> 101111110
+   ```
+
+3. 加1
+
+   ```js
+   101111110 -> 101111111
+   ```
+
+**负数2进制转10进制** 也是求反+1（补码）得到正数
+
+```js
+101111111 -> 010000000 // 求反
+010000000 -> 010000001 // +1
+-129
+```
+
+
+
+### ArrayBuffer
+
+ArrayBuffer：一个对象，用于存储一块固定内存大小的数据。
+
+```js
+
+new ArrayBuffer(字节数)
+
+```
+
+可以通过属性```byteLength```得到字节数，可以通过方法```slice```得到新的ArrayBuffer
+
+```js
+//创建了一个用于存储10个字节的内存空间
+const bf = new ArrayBuffer(10);
+
+// 截取
+const bf2 = bf.slice(3, 5);
+
+console.log(bf, bf2);
+```
+
+![image-20230221185148427](http://img.buxiaoxing.com/uPic/2023/02/21185148-mk3ulY-image-20230221185148427.png)
+
+#### 读写ArrayBuffer
+
+1. 使用DataView
+
+通常会在需要混用多种存储格式时使用DataView
+
+```js
+//创建了一个用于存储10个字节的内存空间
+const bf = new ArrayBuffer(10);
+
+//参数1：ArrayBuffer
+//参数2：偏移量
+//参数3：获取的字节长度
+// 可通过参数2,3控制ArrayBuffer的某些字节
+const view = new DataView(bf, 3, 4);
+
+// console.log(view);
+// 参数1：值
+// 参数2：偏移量（相对于view）
+view.setInt16(1, 3);
+console.log(view);
+
+console.log(view.getInt16(1));
+```
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/02/21195321-iJmBhk-image-20230221195321096.png" alt="image-20230221195321096" style="zoom:50%;" />
+
+2. 使用类型化数组
+
+```js
+const bf = new ArrayBuffer(10)
+const arr = new Int16Array(bf)
+arr[0] = 2344
+console.log(arr)
+```
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/02/22010625-b2YIrT-image-20230222010624832.png" alt="image-20230222010624832" style="zoom:50%;" />
+
+**注意：**使用setInt16或者Int16Array是两个字节两个字节的操作
+
+实际上，每一个类型化数组都对应一个ArrayBuffer，如果没有手动指定ArrayBuffer，类型化数组创建时，会新建一个ArrayBuffer
