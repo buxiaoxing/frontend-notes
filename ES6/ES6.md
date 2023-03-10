@@ -414,10 +414,10 @@ console.log(user)
    注意：
 
    1). 使用static的字段初始化器，添加的是静态成员
-   2). 没有使用static的字段初始化器，添加的成员位于对象上
+   2). 没有使用static的字段初始化器，*添加的成员位于对象上*
    3). 箭头函数在字段初始化器位置上，`this` 指向当前对象
 
-   ​    不会出现在原型上，会占用额外内存空间，每个实例的都会不一样。
+   ​    *不会出现在原型上*(相当于字段初始化器)，会占用额外内存空间，每个实例的都会不一样。
 
    ```js
    class Person {
@@ -506,7 +506,97 @@ console.log(user)
   - 抽象类：一般是父类，不能通过该类创建对象
 - 正常情况下，this的指向，this始终指向具体的类的对象
 
+### class和构造函数的区别
 
+- *class*必须通过*new*关键字调用，否则会报错，构造函数则没有要求。构造函数直接调用的话，里面的this指向全局对象。
+- *class* 中的原型方法不可被枚举
+- *class* 中的所有代码均处于严格模式之下
+- *class* 声明的类，原型上的方法是不允许通过 *new* 来调用的
+
+这里，我们就来使用 *Babel* 对下面的代码进行转义，转义之前的代码如下：
+
+```js
+class Computer {
+    // 构造器
+    constructor(name, price) {
+        this.name = name;
+        this.price = price;
+    }
+    // 原型方法
+    showSth() {
+        console.log(`这是一台${this.name}电脑`);
+    }
+    // 静态方法
+    static comStruct() {
+        console.log("电脑由显示器，主机，键鼠组成");
+    }
+}
+```
+
+转义后的代码如下：
+
+```js
+
+"use strict";
+// 核对构造方法的调用形式
+function _classCallCheck(instance, Constructor) {
+    if (!(instance instanceof Constructor)) { // 如果instance 不是 Constructor 的实例，则报错。
+        throw new TypeError("Cannot call a class as a function");
+    }
+}
+
+function _defineProperties(target, props) {
+    for (var i = 0; i < props.length; i++) {
+        var descriptor = props[i];
+        descriptor.enumerable = descriptor.enumerable || false;
+        descriptor.configurable = true;
+        if ("value" in descriptor)
+            descriptor.writable = true;
+        Object.defineProperty(target, descriptor.key, descriptor);
+    }
+}
+
+function _createClass(Constructor, protoProps, staticProps) {
+    if (protoProps)
+        _defineProperties(Constructor.prototype, protoProps);
+    if (staticProps)
+        _defineProperties(Constructor, staticProps);
+    return Constructor;
+}
+
+var Computer = /*#__PURE__*/function () {
+    // 构造器
+    function Computer(name, price) {
+        _classCallCheck(this, Computer); // 如果是函数调用，this指向window
+
+        this.name = name;
+        this.price = price;
+    } 
+
+
+    _createClass(Computer, [{
+      // 原型方法
+        key: "showSth",
+        value: function showSth() {
+            console.log("\u8FD9\u662F\u4E00\u53F0".concat(this.name, "\u7535\u8111"));
+        } 
+
+    }], [{
+      // 静态方法
+        key: "comStruct",
+        value: function comStruct() {
+            console.log("电脑由显示器，主机，键鼠组成");
+        }
+    }]);
+
+    return Computer;
+}();
+var apple = new Computer("苹果", 15000);
+console.log(apple.name); // 苹果
+console.log(apple.price); // 15000
+apple.showSth(); // 这是一台苹果电脑
+Computer.comStruct(); // 电脑由显示器，主机，键鼠组成
+```
 
 ## 解构
 
@@ -1392,7 +1482,7 @@ class MyMap {
 
    普通集合如果该外部对象设置为null，但由于集合内部可以遍历的到，该对象并不会被垃圾回收。
 
-   Weak集合中，则会被垃圾回收。
+   Weak集合中，则会被垃圾回收(*不是实时的*)。
 
    ```js
    let obj = {

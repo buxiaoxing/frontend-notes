@@ -291,16 +291,10 @@ eventHandler(e){
 
 可以通过高阶组件**增加组件的功能**
 
-
-
 **注意**
 
 1. 不要在render中使用高阶组件
 2. 不要在高阶组件内部更改传入的组件
-
-
-
-
 
 ### Ref
 
@@ -308,7 +302,100 @@ eventHandler(e){
 
 1. Ref 作用于内置的 html 组件，得到的是真实的 dom 对象
 2. ref 作用与类组件，得到的将是类的实例
-3. ref 不能作用与函数组件
+3. ref **不能作用与函数组件**(函数组件只能使用hooks)
+
+**ref赋值的方式**
+
+1. 字符串
+
+   ref不在推荐使用字符串赋值，字符串赋值的方式将来可能被移除
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/02/25234440-UbBHUH-image-20230225234439802.png" alt="image-20230225234439802" style="zoom:50%;" />
+
+2. 对象
+
+   通过 `React.createRef` 函数创建
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/02/25234858-Wl6nkA-image-20230225234858584.png" alt="image-20230225234858584" style="zoom:50%;" />
+
+3. 函数
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/02/25235244-rSX4Li-image-20230225235243922.png" alt="image-20230225235243922" style="zoom:50%;" />
+
+   **函数的调用时间**
+
+   1. *componentDidMount*(该生命周期内可以使用)的时候会调用该函数
+
+   2. 如果 ref 的值发生了变动（旧的函数被新的函数替代），会分别调用旧的函数和新的函数，时间点出现在 *componentDidUpdate* 之前
+
+      旧的函数被调用时，传递null
+
+      新的函数被调用时，传递对象(dom或者类实例)
+
+   3. Ref 所在的组件被**卸载**，会调用对象
+
+**谨慎使用Ref**
+
+能够使用属性和状态进行控制，就不要使用ref（与react声明式渲染的理念不符）
+
+两种情况可以使用
+
+1. 需要调用真实 dom 对象中的方法
+2. 需要调用类组件的方法
+
+
+
+#### Ref 转发
+
+**React.forwardRef**
+
+1. 转发的必须是*函数组件*，不能是类组件，函数组件必须有第二个参数来得到ref
+
+   类组件可以通过普通属性（不能使用ref）传递进去。
+
+2. 返回值，返回一个新的组件
+
+   ```js
+   function A(props, ref){
+     return <h1 ref={ref}>
+       A
+     </h1>
+   }
+   
+   class B extends React.Component{
+   
+     render(){
+       return (
+         <h1 ref={this.props.forwardRef}>
+           B
+         </h1>
+       )
+     }
+   }
+   
+   // 函数组件转发
+   const NewA = React.forwardRef(A)
+   // 类组件转发(嵌套一层函数组件)
+   const NewB = React.forwardRef((props, ref)=>(
+     <B forwardRef={ref}></B>
+   ))
+   export default class ForwardRef extends Component {
+     ARef = React.createRef()
+     BRef = React.createRef()
+     componentDidMount(){
+       console.log(this.ARef)
+       console.log(this.BRef)
+     }
+     render() {
+       return (
+         <div>
+           <NewA ref={this.ARef} />
+           <NewB ref={this.BRef} />
+         </div>
+       )
+     }
+   }
+   ```
 
 
 
@@ -636,11 +723,128 @@ function Money(props) {
 export default Money;
 ```
 
-**react是 *自上而下* 的数据流**
+**react是 *自上而下* 的数据流**(单向数据流)
 
 任何的 state 总是所属于特定的组件，而且从该 state 派生的任何数据或 UI 只能影响树中“*低于*”它们的组件
 
 如果你把一个以组件构成的树想象成一个 props 的**数据瀑布**的话，那么每一个组件的 state 就像是在任意一点上给瀑布增加额外的水源，但是它只能向下流动
+
+
+
+### Context
+
+> 上下文：Context，表示做一些事的环境
+
+**React上下文的特点**
+
+1. 当某个组件创建了上下文后，上下文中的数据，会被所有**后代组件共享**
+2. 如果某个组件依赖了上下文，会导致该**组件不再纯粹**（外部数据仅来源于属性props）
+3. 一般情况下，用于第三方组件（通用组件）
+
+#### 旧版API
+
+**创建上下文**
+
+只有类组件才可以*创建*上下文
+
+1. 给类组件书写静态属性 *childContextTypes*，使用该属性对上下文中的数据类型进行约束
+
+2. 添加实例方法 *getChildContext*，该方法返回的对象，即为上下文中的数据，该数据必须满足类型约束，该方法会在**每次render之后运行**。
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/02/28005359-TZuxN2-image-20230228005359752.png" alt="image-20230228005359752" style="zoom:50%;" />
+
+**使用上下文的数据**
+
+要求：如果要使用上下文中的数据，组件必须有一个静态属性 *contextTypes*，该属性描述了需要获取的上下文中的数据类型
+
+多个上下文时获取**除本身外最近的**上下文
+
+1. 可以在组件的构造函数中，通过*第二个参数*，获取上下文数据
+
+2. 从类组件的 *context属性* 中获取
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/02/28005333-HJB9D4-image-20230228005333487.png" alt="image-20230228005333487" style="zoom:50%;" />
+
+3. 在函数组件中，通过*第二个参数*，获取上下文数据
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/02/28005305-OhLVGG-image-20230228005305528.png" alt="image-20230228005305528" style="zoom:50%;" />
+
+**上下文数据变化**
+
+上下文中的数据不可以直接变化，最终都是通过**状态**改变
+
+在上下文中加入一个处理函数，可以用于后代组件更改上下文的数据
+
+#### 新版API
+
+> 旧版API存在严重的效率问题，并且容易导致滥用(*多级上下文时会就近覆盖*)
+
+**创建上下文**
+
+上下文时一个独立于组件的对象，使用 `React.createContext(默认值)` 创建，返回的是一个包含*两个属性*的对象。
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/03/05105442-QLXKKU-image-20230305105441860.png" alt="image-20230305105441860" style="zoom:50%;" />
+
+1. *Provider*: 生产者。一个组件，该组件会创建一个上下文，该组件有一个 value 属性，通过该属性，可以为其数据赋值
+
+   同一个Provider，不要用到多个组件中，如果需要再其他组件中使用该上下文数据，应该考虑将上下文数据*提升*到更高的层次
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/03/05105415-38yeo7-image-20230305105415785.png" alt="image-20230305105415785" style="zoom:50%;" />
+
+2. *Comsumer*属性：也是一个组件，可以使用Consumer来获取上下文数据
+
+**使用上下文**
+
+1. 在类组件中，直接使用*this.context*获取上下文数据
+   1. 要求：必须拥有静态属性 *contextType* , 应赋值为创建的上下文对象
+   
+    <img src="http://img.buxiaoxing.com/uPic/2023/03/05105345-Hjn8qV-image-20230305105345320.png" alt="image-20230305105345320" style="zoom:50%;" />
+2. 在函数组件中，需要使用*Consumer*来获取上下文数据（类组件也可以通过这种方式获取）
+   1. Consumer是一个组件
+   2. 它的子节点，是一个函数（它的props.children需要传递一个函数）
+   
+    <img src="http://img.buxiaoxing.com/uPic/2023/03/05105659-HNMRon-image-20230305105659458.png" alt="image-20230305105659458" style="zoom:50%;" />
+
+**注意细节**
+
+如果，上下文提供者（Context.Provider）中的*value*属性发生变化(*Object.is*比较)，会导致该上下文提供的*所有后代元素全部重新渲染*，无论该子元素是否有优化（无论shouldComponentUpdate函数返回什么结果）
+
+
+
+#### 使用Context封装表单组件
+
+> 我们在使用表单的时候需要让每一个组件受控，但我们其实只关心最后提交的数据。可以使用Context完成表单的封装。
+
+Form.js
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/03/05193411-8E0CB4-image-20230305193411861.png" alt="image-20230305193411861" style="zoom:50%;" />
+
+Input.js
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/03/05193506-n6Qvxl-image-20230305193506788.png" alt="image-20230305193506788" style="zoom:50%;" />
+
+
+
+### Render props
+
+> 有时候，某些组件的各种功能及其处理逻辑几乎完全相同，只是显示的界面不一样，建议下面的方式任选其一解决重复代码的问题（横切关注点）
+
+1. render props
+
+   1. 某个组件，需要某个属性
+   2. 该属性是一个函数，函数的返回值用于渲染
+   3. 函数的参数会传递为需要的数据
+   4. 通常使用的props名为render（任何属性名都可以）
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/03/06014331-EFYVxj-image-20230306014331557.png" alt="image-20230306014331557" style="zoom:50%;" />
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/03/06014401-pNWReZ-image-20230306014401123.png" alt="image-20230306014401123" style="zoom:50%;" />
+
+2. HOC
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/03/06015037-OUdcsf-image-20230306015037764.png" alt="image-20230306015037764" style="zoom:50%;" />
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/03/06015101-wERDNL-image-20230306015101104.png" alt="image-20230306015101104" style="zoom:50%;" />
 
 ## 表单
 
@@ -1010,6 +1214,8 @@ React 在组件的生命周期中提供了一系列的**钩子函数**（类似�
 
 完整的生命周期图谱，可以参阅官网：*https://projects.wojtekmaj.pl/react-lifecycle-methods-diagram/*
 
+![image-20230305231743621](http://img.buxiaoxing.com/uPic/2023/03/05231743-JyGAOT-image-20230305231743621.png)
+
 ### 常用的生命周期钩子函数
 
 有关生命周期钩子函数的介绍，可以参阅官网：*https://zh-hans.reactjs.org/docs/react-component.html*
@@ -1073,6 +1279,38 @@ export default App;
   - 通常情况下，会将*网络请求、启动计时器*等一开始需要的操作，书写到该函数中
 - *componentWillUnmount*
   - 通常在该函数中**销毁一些组件依赖的资源**，比如计时器
+
+### PureComponent
+
+> 纯组件，用于避免不必要的渲染（运行render函数），从而提高效率
+
+**父组件重新渲染会导致所有子组件重新渲染**
+
+优化：如果一个组件的属性和状态，都没有发生变化，该组件是没有必要重新渲染的
+
+新挂在的组件不会运行 `shouldComponentUpdate` ，只有更新的组件会运行
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/03/06002142-TnryCH-image-20230306002142019.png" alt="image-20230306002142019" style="zoom:50%;" />
+
+`PureComponent` 是一个组件，如果某个组件继承自该组件，则该组件的 `shouldComponentUpdate` 会进行优化，对属性和状态进行浅比较，如果相等，则不会重新渲染。
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/03/06003804-wuI1f2-image-20230306003803987.png" alt="image-20230306003803987" style="zoom:50%;" />
+
+**注意**
+
+1. `PureComponent` 进行的是浅比较，
+
+   1. 为了效率，应该尽量使用 `PureComponent`
+   2. 要求不要改动之前的状态，永远创建**新的状态**，覆盖之前的状态。（*Immutable*，不可变对象）
+   3. 有一个第三方JS库，Immutable.js，专门用于制作不可变对象。
+
+2. 函数组件使用 `React.memo` 函数制作纯组件。
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/03/06004252-57hoen-image-20230306004252664.png" alt="image-20230306004252664" style="zoom:50%;" />
+
+   **memo**其实就是一个高阶函数，包了一层纯类组件
+
+    <img src="http://img.buxiaoxing.com/uPic/2023/03/06004354-1VWxjv-image-20230306004354816.png" alt="image-20230306004354816" style="zoom:50%;" />
 
 
 
@@ -1429,3 +1667,88 @@ React 元素是 *不可变对象*。一旦被创建，你就无法更改它的�
 更新 UI 唯一的方式是**创建一个全新的元素**，并将其传入
 
 React DOM 会将元素和它的子元素与它们之前的**状态进行比较**，并只会进行必要的更新来使 DOM 达到预期的状态。
+
+
+
+### 条件渲染
+
+1. 使用 if 语句
+2. 使用 && 
+3. 将元素使用 *变量保存*
+4. 三目运算符
+
+
+
+### 列表渲染
+
+- 使用 map
+
+  当没有传递 key 的时候，React 默认使用索引作为key
+
+- Key
+
+  如果列表项目的**顺序可能会变化**，不建议使用索引来用作 key 值
+
+  **使用 索引作为 key 会存在什么问题**
+
+  > Key 是 React 唯一识别元素的东西
+  >
+  > 1. 性能问题，浏览器会重新渲染所有列表元素（例如**删除一个元素，其他元素的索引都会改变**，导致所有重新渲染）
+
+
+
+### Portals
+
+> 插槽：将一个React元素渲染到指定的 DOM 容器中
+
+ReactDom.createPortal(React元素，真实的DOM 容器)，该函数返回一个 React 元素
+
+ <img src="http://img.buxiaoxing.com/uPic/2023/03/07193529-WpKwEz-image-20230307193529325.png" alt="image-20230307193529325" style="zoom:50%;" />
+
+**注意事件冒泡**
+
+1. React 中的事件是包装过的。
+2. 它的事件冒泡是根据虚拟 DOM 树来冒泡的，与真实 DOM 无关。
+
+## React API
+
+### React.Component
+
+使用 *class* 方式定义 React 组件的基类
+
+### React.PureComponent
+
+实现了 *shouldComponentUpdate()*(浅层对比props和state) 的 React.Component
+
+在某些情况下使用 PureComponent 可以*提高性能*
+
+**注意**
+
+仅在你的 props 和 state 较为简单时，才使用 `React.PureComponent`，或者在深层数据结构发生变化时调用 [`forceUpdate()`](https://zh-hans.reactjs.org/docs/react-component.html#forceupdate) 来确保组件被正确地更新
+
+### React.memo
+
+```jsx
+const MyComponent = React.memo(function MyComponent(props) {
+  /* 使用 props 渲染 */
+});
+```
+
+*React.memo* 是高阶组件
+
+如果你的组件在相同 props 的情况下渲染相同的结果，那么你可以通过将其包装在 `React.memo` 中调用，以此**通过记忆组件渲染结果的方式来提高组件的性能表现**。这意味着在这种情况下，React 将跳过渲染组件的操作并直接复用最近一次渲染的结果。
+
+### React.createElement
+
+创建并返回指定类型的新 React 元素
+
+### React.cloneElement
+
+```jsx
+React.cloneElement(
+  element,
+  [config],
+  [...children]
+)
+```
+
