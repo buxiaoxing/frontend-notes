@@ -16,24 +16,24 @@ function method2(){
   console.time("方式2")
   const rs = fs.createReadStream(fromName)
   const ws = fs.createWriteStream(toName)
-  rs.pipe(ws) // 等同于下面的方式，解决背压问题
-  rs.on("end", ()=>{
-    ws.end()
-    console.timeEnd("方式2")
-  })
-  // let flag = true
-  // rs.on("data", chunk=>{
-  //   flag = ws.write(chunk)
-  //   if(!flag){
-  //     rs.pause()
-  //   }
-  // })
-  // ws.on("drain", ()=>{
-  //   rs.resume()
-  // })
+  // rs.pipe(ws) // 等同于下面的方式，解决背压问题
   // rs.on("end", ()=>{
   //   ws.end()
   //   console.timeEnd("方式2")
   // })
+  let flag = true
+  rs.on("data", chunk=>{
+    flag = ws.write(chunk)
+    if(!flag){
+      rs.pause()
+    }
+  })
+  ws.on("drain", ()=>{
+    rs.resume()
+  })
+  rs.on("end", ()=>{
+    ws.end()
+    console.timeEnd("方式2")
+  })
 }
 method2()

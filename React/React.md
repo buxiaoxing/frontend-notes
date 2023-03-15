@@ -399,6 +399,33 @@ eventHandler(e){
 
 
 
+### React中的事件
+
+> 这里的事件指React内置的 DOM 组件的事件
+>
+> React 中的 div p这些组件都是 React 自定定义的虚拟dom，并不是真实 dom
+
+1. React 中的事件几乎都通过事件委托注册在 *document* 上的
+
+   - 如果给真实 DOM 注册事件，阻止了事件冒泡，会导致 react 的相应事件无法触发
+   - 如果给真实 DOM 注册事件，事件会先于 React 事件运行
+   - 一些不冒泡的事件，直接在元素上监听
+   - 一些 *document* 上面没有的事件，直接在元素上监听（play focus）
+
+2. React 的事件参数，并非真实 DOM 事件参数，是React合成的一个对象，该对象类似于正式 DOM 事件参数
+
+   - *stopPropagation*，阻止事件在虚拟 dom 树中冒泡(虚拟dom树的事件处理函数应该是放在一个队列中的，document在处理事件时会遍历这个队列，如果队列中的某项阻止的事件冒泡，事件参数有*isPropagationStopped*函数判断是否阻止了事件冒泡，则不会再往后遍历)
+
+   - 可以通过 *nativeEvent*，获取到真实的DOM事件对象
+
+     可以通过 *nativeEvent.stopImmediatePropagation()* 阻止 document 上剩余事件的执行。
+
+   - 为了提高执行效率，React使用事件对象池来处理事件对象（*事件对象会被重用*，事件函数结束后，该事件对象就会清空，所以在事件处理函数中，不要异步使用事件对象）
+
+     可以通过 *persist()* 函数让此事件对象持久化，但会影响执行效率
+
+     
+
 ## 组件状态与数据传递
 
 ### 组件状态
@@ -842,9 +869,9 @@ Input.js
 
 2. HOC
 
-    <img src="http://img.buxiaoxing.com/uPic/2023/03/06015037-OUdcsf-image-20230306015037764.png" alt="image-20230306015037764" style="zoom:50%;" />
+     <img src="http://img.buxiaoxing.com/uPic/2023/03/06015037-OUdcsf-image-20230306015037764.png" alt="image-20230306015037764" style="zoom:50%;" />
 
-    <img src="http://img.buxiaoxing.com/uPic/2023/03/06015101-wERDNL-image-20230306015101104.png" alt="image-20230306015101104" style="zoom:50%;" />
+     <img src="http://img.buxiaoxing.com/uPic/2023/03/06015101-wERDNL-image-20230306015101104.png" alt="image-20230306015101104" style="zoom:50%;" />
 
 ## 表单
 
@@ -1710,6 +1737,237 @@ ReactDom.createPortal(React元素，真实的DOM 容器)，该函数返回一个
 1. React 中的事件是包装过的。
 2. 它的事件冒泡是根据虚拟 DOM 树来冒泡的，与真实 DOM 无关。
 
+
+
+### 渲染过程
+
+> 渲染：生成用于显示的对象，以及将这些对象形成真实的DOM对象
+
+- **React元素**(*React Element*)
+
+  通过*React.createElement*创建（语法糖：JSX）
+
+  如 `<div></div>` `<App />`
+
+- **React节点**
+
+  专门用于渲染到UI界面的对象，React会通过React元素，创建React节点，*ReactDOM* 一定是通过React节点来进行渲染的
+
+  节点类型
+
+  - React DOM节点：创建该节点的React元素类型是一个字符串
+
+  - React 组件节点：创建该节点的React元素类型是一个函数或是一个类
+
+  - React 文本节点：由字符串、数字创建的
+
+  - React 空节点：由*null、undefined、false、true*
+
+  - React 数组节点：该节点由一个数组创建
+
+    
+
+  **整个渲染流程大致如下**
+
+  ![image-20230312171029391](http://img.buxiaoxing.com/uPic/2023/03/12171029-ivggxR-image-20230312171029391.png)
+
+#### 首次渲染(新节点挂载)
+
+1. 通过参数的值(reactDOM.render()的参数)创建节点
+2. 根据不同的节点，做不同的事情
+   1. 文本节点: 通过*document.createTextNode*创建真实的文本节点
+   2. 空节点：什么都不做
+   3. 数组节点：遍历数组，将数组每一项*递归*创建节点（回到第1步进行反复操作，直到遍历结束）
+   4. DOM节点：通过*document.createElement*创建真实的DOM对象，然后立即设置该真实DOM元素的各种属性，然后遍历对应React元素的children属性，递归操作（回到第1步进行反复操作，直到遍历结束）
+   5. 组件节点
+      1. 函数组件：调用函数(该函数必须返回一个*可以生成节点的内容*)，将该函数的返回结果*递归*生成节点（回到第1步进行反复操作，直到遍历结束）
+      2. 类组件
+         1. 创建该类的实例(执行 constructor)
+         2. 立即调用对象的生命周期方法：*static getDerivedStateFromProps*
+         3. 运行该对象的*render*方法，拿到节点对象（将该节点*递归*操作，回到第1步进行反复操作）
+         4. 将该组件的*componentDidMount*加入到执行*队列*（先进先出，先进先执行），当整个虚拟DOM树全部构建完毕，并且将*真实的DOM对象加入到容器*中后，执行该队列
+3. 生成出*虚拟DOM树*之后，将该树*保存*起来，以便后续使用
+4. 将之前生成的*真实的DOM对象，加入到容器*中。
+
+```js
+const app = <div className="assaf">
+    <h1>
+        标题
+        {["abc", null, <p>段落</p>]}
+    </h1>
+    <p>
+        {undefined}
+    </p>
+</div>;
+ReactDOM.render(app, document.getElementById('root'));
+```
+
+以上代码生成的虚拟 DOM 树
+
+![image-20230312173336540](http://img.buxiaoxing.com/uPic/2023/03/12173336-2P8EHM-image-20230312173336540.png)
+
+```js
+function Comp1(props) {
+    return <h1>Comp1 {props.n}</h1>
+}
+
+function App(props) {
+    return (
+        <div>
+            <Comp1 n={5} />
+        </div>
+    )
+}
+
+const app = <App />;
+ReactDOM.render(app, document.getElementById('root'));
+```
+
+<img src="http://img.buxiaoxing.com/uPic/2023/03/12173415-XlvSB9-image-20230312173415419.png" alt="image-20230312173415419" style="zoom:50%;" />
+
+```js
+class Comp1 extends React.Component {
+    render() {
+        return (
+            <h1>Comp1</h1>
+        )
+    }
+}
+
+class App extends React.Component {
+    render() {
+        return (
+            <div>
+                <Comp1 />
+            </div>
+        )
+    }
+}
+
+const app = <App />;
+ReactDOM.render(app, document.getElementById('root'));
+```
+
+<img src="http://img.buxiaoxing.com/uPic/2023/03/12173459-UASdKl-image-20230312173458942.png" alt="image-20230312173458942" style="zoom:50%;" />
+
+#### 更新节点
+
+更新的场景：
+
+1. 重新调用 *ReactDOM.render*，触发根节点更新
+2. 在类组件的实例对象中调用 *setState*，会导致该实例所在的节点更新
+
+**节点的更新**
+
+- 如果调用的是 *ReactDOM.render*，进入根节点的**对比（diff）更新**
+- 如果调用的是 *setState*
+  1. 运行生命周期函数，*static getDerivedStateFromProps*
+  2. 运行 *shouldComponentUpdate*，如果该函数返回false，终止当前流程 
+  3. 运行 *render*，得到一个新的节点，进入该新的节点的**对比更新**
+  4. 将生命周期函数 *getSnapshotBeforeUpdate* 加入执行队列，以待将来执行
+  5. 将生命周期函数 *componentDidUpdate* 加入执行队列，以待将来执行
+
+后续步骤
+
+1. 更新虚拟DOM树
+2. 完成真实的DOM更新
+3. 依次调用执行队列中的 *componentDidMount*
+4. 依次调用执行队列中的 *getSnapshotBeforeUpdate*
+5. 依次调用执行队列中的 *componentDidUpdate*
+
+##### **对比更新**
+
+将新产生的节点，对比之前虚拟DOM中的节点，发现差异，完成更新
+
+问题：对比之前DOM树中哪个节点
+
+React为了提高对比效率，做出以下假设
+
+1. 假设节点不会出现层次的移动（对比时，直接找到旧树中对应位置的节点进行对比）
+
+2. 不同的节点类型会生成不同的结构
+
+   1. 相同的*节点类型*：节点本身类型相同，如果是由React元素生成，*type*值还必须一致
+   2. 其他的，都属于不相同的节点类型
+
+3. 多个兄弟通过唯一标识（*key*）来确定对比的新节点。*key的作用就是找到对比的节点*
+
+   key值的作用：用于通过旧节点，寻找对应的新节点，如果某个旧节点有key值，则其更新时，会寻找相同层级中的相同key值的节点，进行对比。
+
+   **key值应该在一个范围内唯一（兄弟节点中），并且应该保持稳定**
+
+**找到了对比目标**
+
+判断节点类型是否一致
+
+- 如果**一致**
+
+  根据不同的节点类型，做不同的事情
+
+  - **空节点**
+
+  不做任何事情
+
+  - **DOM节点**
+
+    - 直接*重用之前的真实DOM对象*
+
+    - 将其属性的变化记录下来，以待将来统一完成更新（现在不会真正的变化）
+
+    - 遍历该新的React元素的子元素，**递归对比更新**
+
+  - **文本节点**
+
+    - 直接*重用之前的真实DOM对象*
+    - 将新的文本变化记录下来，将来统一完成更新
+
+  - **组件节点**
+
+    - **函数组件** 重新调用函数，得到一个节点对象，进入**递归对比更新**
+
+    - **类组件**
+
+      1. *重用之前的实例*
+
+      2. 调用生命周期方法 *getDerivedStateFromProps*
+
+      3. 调用生命周期方法 *shouldComponentUpdate*，若该方法返回false，终止
+
+      4. 运行 *render*，得到新的节点对象，进入**递归对比更新**
+
+      5. 将该对象的 *getSnapshotBeforeUpdate* 加入队列
+
+      6. 将该对象的 *componentDidUpdate* 加入队列
+
+  - **数组节点**
+
+  遍历数组进行**递归对比更新**
+
+- **不一致**
+
+  整体上，先创建新节点，再卸载旧节点
+
+  **创建新节点**
+
+  进入新节点的挂载流程
+
+  **卸载旧节点**
+
+  1. **文本节点、DOM节点、数组节点、空节点、函数组件节点**：直接放弃该节点，如果节点有子节点，递归卸载节点
+  2. **类组件节点**：
+     1. 直接放弃该节点
+     2. 调用该节点的 *componentWillUnMount* 函数
+     3. 递归卸载子节点
+
+**没有找到对比目标**
+
+新的DOM树中有节点被删除
+
+新的DOM树中有节点添加
+
+- 创建新加入的节点
+- 卸载多余的旧节点
+
 ## React API
 
 ### React.Component
@@ -1752,3 +2010,49 @@ React.cloneElement(
 )
 ```
 
+
+
+
+
+## 工具
+
+### 严格模式
+
+StrictMode(```React.StrictMode```)，本质是一个组件，该组件不进行UI渲染（```React.Fragment <> </>```），它的作用是，在渲染内部组件时，发现不合适的代码。
+
+- *识别不安全的生命周期*
+- 关于使用过时字符串 *ref API 的警告*
+- 关于使用废弃的 *findDOMNode* 方法的警告
+- 检测意外的*副作用*
+  - React要求，副作用代码仅出现在以下生命周期函数中
+  - 1. ComponentDidMount
+  - 2. ComponentDidUpdate
+  - 3. ComponentWillUnMount
+
+副作用：一个函数中，做了一些会影响函数外部数据的事情，例如：
+
+1. 异步处理
+2. 改变参数值
+3. setState
+4. 本地存储
+5. 改变函数外部的变量
+
+相反的，如果一个函数没有副作用，则可以认为该函数是一个纯函数
+
+在严格模式下，虽然不能监控到具体的副作用代码，但它会*将不能具有副作用的函数调用两遍*，以便发现问题。（这种情况，仅在开发模式下有效）
+
+- 检测过时的 context API
+
+
+
+### Profiler
+
+性能分析工具
+
+分析某一次或多次提交（更新），涉及到的组件的渲染时间
+
+火焰图：得到某一次提交，每个组件总的渲染时间以及自身的渲染时间
+
+排序图：得到某一次提交，每个组件自身渲染时间的排序
+
+组件图：某一个组件，在多次提交中，自身渲染花费的时间

@@ -5,7 +5,7 @@ const filename = path.resolve(__dirname, "./TestFile/1.txt")
 
 async function test(){
   const stat = await fs.promises.stat(filename)
-  // console.dir(stat)
+  console.dir(stat)
   console.log(stat.atime) // 上次访问时间
   console.log(stat.size) // 占用字节，目录为0
   console.log(stat.mtime) // 上次文件被修改时间

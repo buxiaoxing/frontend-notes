@@ -11,6 +11,7 @@ import TaskContainer from './PureComponent/TaskContainer';
 import MovablePanel from './renderProps/MovablePanel';
 import RenderPropsTest from './renderProps/RenderPropsTest';
 import Portals from './Portals/Portals';
+import Timer from './components/Timer';
 function App() {
   // console.log(RefFun) // 类
   // console.log(<RefFun />) // 类实例
@@ -27,7 +28,8 @@ function App() {
       {/* <TaskContainer /> */}
       {/* <MovablePanel /> */}
       {/* <RenderPropsTest /> */}
-      <Portals />
+      {/* <Portals /> */}
+      <Timer />
     </div>
   );
 }
