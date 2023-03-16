@@ -347,6 +347,8 @@ eventHandler(e){
 
 #### Ref 转发
 
+> Ref 转发是一项将 [ref](https://zh-hans.reactjs.org/docs/refs-and-the-dom.html) 自动地通过组件传递到其一子组件的技巧(即可以拿到*子子组件*的dom)
+
 **React.forwardRef**
 
 1. 转发的必须是*函数组件*，不能是类组件，函数组件必须有第二个参数来得到ref
@@ -355,7 +357,7 @@ eventHandler(e){
 
 2. 返回值，返回一个新的组件
 
-   ```js
+   ```jsx
    function A(props, ref){
      return <h1 ref={ref}>
        A
@@ -869,9 +871,9 @@ Input.js
 
 2. HOC
 
-     <img src="http://img.buxiaoxing.com/uPic/2023/03/06015037-OUdcsf-image-20230306015037764.png" alt="image-20230306015037764" style="zoom:50%;" />
+      <img src="http://img.buxiaoxing.com/uPic/2023/03/06015037-OUdcsf-image-20230306015037764.png" alt="image-20230306015037764" style="zoom:50%;" />
 
-     <img src="http://img.buxiaoxing.com/uPic/2023/03/06015101-wERDNL-image-20230306015101104.png" alt="image-20230306015101104" style="zoom:50%;" />
+      <img src="http://img.buxiaoxing.com/uPic/2023/03/06015101-wERDNL-image-20230306015101104.png" alt="image-20230306015101104" style="zoom:50%;" />
 
 ## 表单
 
@@ -1427,11 +1429,9 @@ Hook 就是 JavaScript 函数，但是使用它们会有两个额外的规则：
 - 只能在**函数最外层**调用 Hook。不要在循环、条件判断或者子函数中调用。
 - 只能在 React 的**函数组件中**调用 Hook。不要在其他 JavaScript 函数中调用。
 
-### *useState* 和 *useEffect*
+### *useState*
 
-React 内置了一些实用的 Hook，并且随着 React 版本的更新，Hook 的数量还在持续增加当中。
-
-入门阶段，我们掌握两个最常用的 Hook，一个是为函数组件**添加状态**的 *useState*，另一个是处理函数**副作用**的 *useEffect*。
+> 为函数组件**添加状态**
 
 
 
@@ -1462,7 +1462,7 @@ export default App;
 
 ```
 
-- 声明多个 *state* 状态
+- 声明多个 *state* 状态，个函数组件中可以有多个状态，这种做法非常有利于横向切分关注点
 
 ```react
 import { useState } from 'react';
@@ -1491,7 +1491,21 @@ function App(props) {
 export default App;
 ```
 
+- **注意的细节**
+  1. useState最好写到函数的起始位置，便于阅读
+  2. useState严禁出现在代码块（判断、循环）中
+  3. useState返回的函数（数组的第二项），*引用不变*（节约内存空间）
+  4. 使用函数改变数据，若数据和之前的数据完全相等（使用*Object.is*比较），不会导致重新渲染，以达到优化效率的目的。
+  5. 使用函数改变数据，传入的值不会和原来的数据进行合并，而是*直接替换*。
+  6. 如果要实现*强制刷新*组件
+     1. 类组件：使用*forceUpdate*函数
+     2. 函数组件：使用一个空对象的*useState*
+  7. **如果某些状态之间没有必然的联系，应该分化为不同的状态，而不要合并成一个对象**
+  8. 和类组件的状态一样，函数组件中*改变状态可能是异步的*（在DOM事件中），*多个状态变化会合并以提高效率*，此时，不能信任之前的状态，而应该使用回调函数的方式改变状态。如果状态*变化要使用到之前的状态，尽量传递函数*。
 
+### *useEffect*
+
+> 处理函数**副作用**
 
 *useEffect* 包含以下知识点：
 
@@ -1508,83 +1522,114 @@ export default App;
   x => 3 ===> 6
   ```
 
-  - 如果一个函数中，存在副作用，那么我们就称该函数不是一个纯函数，所谓副作用，就是指函数的结果是不可控，不可预期。
+  - 如果一个函数中，存在副作用，那么我们就称该函数不是一个纯函数，所谓副作用，就是指*函数的结果是不可控，不可预期*。
+
   - 常见的副作用有发送网络请求、添加一些监听的注册和取消注册，手动修改 DOM，以前我们是将这些副作用写在生命周期钩子函数里面，现在就可以书写在 useEffect 这个 Hook 里面
+
+    ```
+    ajax请求
+    计时器
+    其他异步操作
+    更改真实DOM对象
+    本地存储
+    其他会对外部产生影响的操作
+    ```
 
 - 基本使用
 
-```react
-import { useState, useEffect } from 'react';
+  > useEffect，该函数接收一个函数作为参数，接收的函数就是需要进行副作用操作的函数
+  >
+  > 副作用函数的运行*时间点*，是在页面完成*真实的UI渲染之后*。因此它的执行是*异步*的，并且不会阻塞浏览器
+  >
+  > 与类组件中componentDidMount和componentDidUpdate的区别
+  >
+  > 1. componentDidMount和componentDidUpdate，更改了真实DOM，但是用户还没有看到UI更新就执行，同步的。
+  > 2. useEffect中的副作用函数，更改了真实DOM，并且用户已经看到了UI更新之后执行，异步的。
 
-function App() {
-
-  let [count, setCount] = useState(0);
-
-  useEffect(()=>{
-    // 书写你要执行的副作用，会在组件渲染完成后执行
-    // 第二个参数不传，每次重新渲染都会执行。
-    document.title = `你点击了${count}次`;
-  });
-
-
-  function clickhandle() {
-    setCount(++count);
+  ```js
+  import { useState, useEffect } from 'react';
+  
+  function App() {
+  
+    let [count, setCount] = useState(0);
+  
+    useEffect(()=>{
+      // 书写你要执行的副作用，会在组件渲染完成后执行
+      // 第二个参数不传，每次重新渲染都会执行。
+      document.title = `你点击了${count}次`;
+    });
+  
+  
+    function clickhandle() {
+      setCount(++count);
+    }
+  
+    return (
+      <div>
+        <div>你点击了{count}次</div>
+        <button onClick={clickhandle}>+1</button>
+      </div>
+    );
   }
+  
+  export default App;
+  ```
 
-  return (
-    <div>
-      <div>你点击了{count}次</div>
-      <button onClick={clickhandle}>+1</button>
-    </div>
-  );
-}
-
-export default App;
-```
+  
 
 - 执行清理工作
 
-```react
-import { useState, useEffect } from 'react';
+  > useEffect中的副作用函数，可以有返回值，返回值必须是一个函数，该函数叫做清理函数
+  >
+  > 1. 该函数运行时间点，在*每次运行副作用函数之前*
+  > 2. 首次渲染组件不会运行
+  > 3. 组件被销毁时一定会运行
 
-function App() {
-
-  let [count, setCount] = useState(0);
-
-  useEffect(()=>{
-    // 书写你要执行的副作用，会在组件渲染完成后执行
-    const stopTimer = setInterval(()=>{
-      console.log("Hello");
-    },1000)   
-
-    // console.log("副作用函数执行了");
-    // 在 useEffect 中，可以返回一个函数，该函数我们称之为清理函数（一般就是做一些清理操作）
-    // 该函数会在下一次渲染之后，但是在执行副作用操作之前执行
-    return ()=>{
-      // console.log("清理函数执行了");
-      clearInterval(stopTimer);
+  ```js
+  import { useState, useEffect } from 'react';
+  function App() {
+    let [count, setCount] = useState(0);
+    useEffect(()=>{
+      // 书写你要执行的副作用，会在组件渲染完成后执行
+      const stopTimer = setInterval(()=>{
+        console.log("Hello");
+      },1000)   
+  
+      // console.log("副作用函数执行了");
+      // 在 useEffect 中，可以返回一个函数，该函数我们称之为清理函数（一般就是做一些清理操作）
+      // 该函数会在下一次渲染之后，但是在执行副作用操作之前执行
+      return ()=>{
+        // console.log("清理函数执行了");
+        clearInterval(stopTimer);
+      }
+    });
+  
+    function clickhandle() {
+      setCount(++count);
     }
-  });
-
-
-  function clickhandle() {
-    setCount(++count);
+  
+    return (
+      <div>
+        <div>你点击了{count}次</div>
+        <button onClick={clickhandle}>+1</button>
+      </div>
+    );
   }
+  export default App;
+  ```
 
-  return (
-    <div>
-      <div>你点击了{count}次</div>
-      <button onClick={clickhandle}>+1</button>
-    </div>
-  );
-}
-
-export default App;
-```
+  
 
 - 副作用的依赖
 
-  - 目前，我们的副作用函数，每次重新渲染后，都会重新执行，有些时候我们是需要设置依赖项，传递第二个参数，第二个参数为一个依赖数组
+  > useEffect函数，可以传递第二个参数
+  >
+  > 1. 第二个参数是一个数组
+  > 2. 数组中记录该副作用的依赖数据
+  > 3. 当组件重新渲染后，*只有依赖数据与上一次不一样的时，才会执行副作用*
+  > 4. 所以，当传递了依赖数据之后，如果数据没有发生变化
+  >    1. 副作用函数仅在第一次渲染后运行
+  >    2. 清理函数仅在卸载组件后运行
 
   ```react
   import { useState, useEffect } from 'react';
@@ -1614,13 +1659,19 @@ export default App;
   export default App;
   ```
 
-  - 如果想要副作用只执行**一**次，传递第二个参数为一个空数组
+- 如果想要副作用只执行**一**次，传递第二个参数为一个空数组
 
   ```js
   useEffect(()=>{
     console.log("执行副作用函数");
   },[]);
   ```
+
+**注意**
+
+1. 每个函数组件中，可以多次使用useEffect，但不要放入判断或循环等代码块中。
+2. 副作用函数中，如果使用了函数上下文中的变量，则由于*闭包*的影响，会导致*副作用函数中变量不会实时变化*(**定时器**)。
+3. 副作用函数在每次注册时，会覆盖掉之前的副作用函数，因此，尽量*保持副作用函数稳定*，否则控制起来会比较复杂。
 
 ### 自定义 *Hook*
 
@@ -1678,6 +1729,85 @@ export default useMyBook;
 ```
 
 
+
+使用Hook的时候，如果没有严格按照Hook的规则进行，eslint的一个插件（*eslint-plugin-react-hooks*）会报出警告
+
+单文件禁用eslint规则
+
+```js
+/* eslint "react-hooks/exhaustive-deps": "off" */
+```
+
+ 
+
+### useReducer
+
+#### **Flux**
+
+> Facebook 出品的一个数据流框架
+
+1. 规定数据是*单向流动*的
+2. 数据存储在*数据仓库*中（目前，可以认为state就是一个存储数据的仓库）
+3. *action*是改变数据的唯一原因（本质上就是一个对象，action有两个属性）
+   1. type：字符串，动作的类型
+   2. payload：任意类型，动作发生后的附加信息
+   3. 例如，如果是添加一个学生，action可以描述为：
+      1. `{ type:"addStudent", payload: {学生对象的各种信息} }`
+   4. 例如，如果要删除一个学生，action可以描述为：
+      1. `{ type:"deleteStudent", payload: 学生id }`
+4. 具体改变数据的是一个函数，该函数叫做 *reducer*
+   1. 该函数接收两个参数
+      1. state：表示当前数据仓库中的数据
+      2. action：描述了如何去改变数据，以及改变数据的一些附加信息
+   2. 该函数必须有一个返回结果，用于表示数据仓库变化之后的数据
+      1. Flux要求，对象是不可变的，如果返回对象，必须创建新的对象
+   3. reducer必须是*纯函数*，不能有任何副作用
+5. 如果要触发 *reducer*，不可以直接调用，而是应该调用一个辅助函数 *dispatch*
+   1. 该函数仅接收一个参数：action
+   2. 该函数会间接去调用 reducer，以达到改变数据的目的
+
+#### 手写useReducer
+
+> React 提供的 useReducer 也是这样实现的
+
+```js
+import {useState} from "react"
+/**
+ * 
+ * @param {Function} reducer 
+ * @param {any} initVal 
+ * @param {Function} initValFun 
+ */
+export function useReducer(reducer, initVal, initValFun){
+  const [state, setState] = useState(initValFun?initValFun(initVal): initVal)
+  function dispatch(action){
+    const newState = reducer(state, action)
+    console.log(`日志：n的值 ${state} -> ${newState}`)
+    setState(newState)
+  }
+
+  return [state, dispatch]
+}
+```
+
+
+
+### useContext
+
+> 用与获取上下文
+
+```jsx
+// 创建上下文
+const ctx = react.creatContext()
+
+<ctx.Provider value="abc">
+      <...>
+</ctx.Provider>
+```
+
+```js
+const val = useContext(ctx) // 就直接获取到了上下文的值，更方便使用
+```
 
 
 

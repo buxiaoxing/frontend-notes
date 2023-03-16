@@ -1,3 +1,10 @@
+/*
+ * @Author: juncheng.wu juncheng.wu@bst.ai
+ * @Date: 2023-03-16 09:33:51
+ * @LastEditors: juncheng.wu juncheng.wu@bst.ai
+ * @LastEditTime: 2023-03-16 18:06:53
+ * @Description: 
+ */
 import React, { Component } from 'react'
 
 function A(props, ref){
@@ -25,9 +32,9 @@ export default class ForwardRef extends Component {
   ARef = React.createRef()
   BRef = React.createRef()
   componentDidMount(){
-    // console.log(this.ARef)
-    // console.log(this.BRef)
-    console.log("didmount")
+    console.log(this.ARef)
+    console.log(this.BRef)
+    // console.log("didmount")
   }
   render() {
     return (
