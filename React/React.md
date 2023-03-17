@@ -1809,7 +1809,91 @@ const ctx = react.creatContext()
 const val = useContext(ctx) // 就直接获取到了上下文的值，更方便使用
 ```
 
+### useCallback
 
+> 用于得到一个*固定引用值的函数*，通常用它进行*性能优化*
+
+该函数有两个参数：
+
+1. 函数，useCallback会固定该函数的引用，只要依赖项没有发生变化，则始终返回之前函数的地址
+2. 数组，记录依赖项
+
+该函数返回：引用相对固定的函数地址
+
+
+
+### useMemo
+
+用于保持一些比较稳定的数据，通常用于性能优化
+
+**如果React元素本身的引用没有发生变化，一定不会重新渲染**
+
+该函数有两个参数：
+
+1. 函数，该函数必须返回一个引用(可以是函数，对象，数组，...)，只要依赖项没有发生变化，则始终返回之前的引用地址
+2. 只要依赖项没有发生变化，则始终返回之前函数的地址
+
+**可以说是 useCallback 的超集**
+
+
+
+### useRef
+
+返回**固定对象**
+
+1. 只有一个参数：默认值
+2. 返回一个固定的对象，`{current: 值}`
+
+### useImperativeHandleHook
+
+> 用户ref转发，可以调用函数中的方法
+
+```jsx
+function Test(props, ref) {
+    useImperativeHandle(ref, () => {
+        //如果不给依赖项，则每次运行函数组件都会调用该方法
+        //如果使用了依赖项，则第一次调用后，会进行缓存，只有依赖项发生变化时才会重新调用函数
+        //相当于 ref.current = 返回值
+        return {
+            method(){
+                console.log("Test Component Called")
+            }
+        }
+    }, [])
+    return <h1>Test Component</h1>
+}
+
+const TestWrapper = React.forwardRef(Test)
+
+export default function App() {
+    // const [, forceUpdate] = useState({})
+    const testRef = useRef();
+    return (
+        <div>
+            <TestWrapper ref={testRef} />
+            <button onClick={() => {
+                testRef.current.method(); // Test Component Called
+            }}>点击调用Test组件的method方法</button>
+        </div>
+    )
+}
+```
+
+### useLayoutEffect Hook
+
+> 和useEfflect用法类似，执行时机不同
+>
+> *useEffect*：浏览器渲染完成后，用户看到新的渲染结果之后 
+>
+> *useLayoutEffectHook*：完成了DOM改动，但还没有呈现给用户
+>
+> 应该尽量使用 useEffect，因为它不会导致渲染阻塞，如果出现了问题，再考虑使用useLayoutEffectHook
+
+### useDebugValue
+
+useDebugValue：用于将自定义Hook的关联数据显示到调试栏
+
+如果创建的自定义Hook通用性比较高，可以选择使用useDebugValue*方便调试*
 
 ## React渲染
 
@@ -2181,8 +2265,86 @@ StrictMode(```React.StrictMode```)，本质是一个组件，该组件不进行U
 
 分析某一次或多次提交（更新），涉及到的组件的渲染时间
 
-火焰图：得到某一次提交，每个组件总的渲染时间以及自身的渲染时间
+**火焰图**：得到某一次提交，每个组件总的渲染时间以及自身的渲染时间
 
-排序图：得到某一次提交，每个组件自身渲染时间的排序
+**排序图**：得到某一次提交，每个组件自身渲染时间的排序
 
-组件图：某一个组件，在多次提交中，自身渲染花费的时间
+**组件图**：某一个组件，在多次提交中，自身渲染花费的时间
+
+
+
+
+
+## React Router
+
+### 概述
+
+#### 站点
+
+![image-20230317151253882](image-20230317151253882.png)
+
+无论是使用Vue，还是React，开发的单页应用程序，可能只是该站点的一部分（某一个功能块）
+
+一个单页应用里，可能会划分为多个页面（几乎完全不同的页面效果）（组件）
+
+如果要在单页应用中完成组件的切换，需要实现下面两个功能：
+
+1. 根据不同的页面地址，展示不同的组件（核心）
+2. 完成无刷新的地址切换
+
+#### react router
+
+1. react-router：路由核心库，包含诸多和路由功能相关的核心代码
+2. react-router-dom：利用路由核心库，结合实际的页面，实现跟页面路由密切相关的功能
+
+如果是在页面中实现路由，需要安装react-router-dom(它依赖react-dom，所以会自动安装)库
+
+### 两种模式
+
+#### url地址组成
+
+url地址组成
+
+例：[https://www.react.com:443/news/1-2-1.html?a=1&b=2#abcdefg](https://gitee.com/link?target=https%3A%2F%2Fwww.react.com%3A443%2Fnews%2F1-2-1.html%3Fa%3D1%26b%3D2%23abcdefg)
+
+1. 协议名(*schema*)：https
+2. 主机名(*host*)：www.react.com
+   1. ip地址
+   2. 预设值：localhost
+   3. 域名
+   4. 局域网中电脑名称
+3. 端口号(*port*)：443
+   1. 如果协议是http，端口号是80，则可以省略端口号
+   2. 如果协议是https，端口号是443，则可以省略端口号
+4. 路径(*path*)：/news/1-2-1.html
+5. 地址参数(*search、query*)：?a=1&b=2
+   1. 附带的数据
+   2. 格式：属性名=属性值&属性名=属性值....
+6. 哈希(*hash*、锚点)
+   1. 附带的数据
+
+
+
+#### Hash Router
+
+根据url地址中的哈希值来确定显示的组件
+
+> 原因：hash的变化，不会导致页面刷新 这种模式的*兼容性最好*
+
+#### Browser History Router
+
+HTML5出现后，新增了*History Api*，从此以后，浏览器拥有了改变路径而不刷新页面的方式
+
+History表示浏览器的历史记录，它使用*栈的方式存储*。
+
+ <img src="image-20230317181140156.png" alt="image-20230317181140156" style="zoom:50%;" />
+
+1. *history.length*：获取栈中数据量
+2. *history.pushState*：向当前历史记录栈中加入一条新的记录
+   1. 参数1：附加的数据，自定义的数据，可以是任何类型
+   2. 参数2：页面标题，目前大部分浏览器不支持
+   3. 参数3：新的地址
+3. *history.replaceState*：将当前指针指向的历史记录，替换为某个记录
+   1. 参数1：附加的数据，自定义的数据，可以是任何类型
+   2. 参数2：页面标题，目前大部分浏览器不支持
+   3. 参数3：新的地址
